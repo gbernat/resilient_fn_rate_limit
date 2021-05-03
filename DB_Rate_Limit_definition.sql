@@ -35,8 +35,28 @@ CREATE TABLE IF NOT EXISTS `Rate_limit`.`Data` (
 
 
 
-
-
+-- Tbl Data maintenance (registers of type Resource, older than 10000 times of allowed in Settings will be Dropped once a week)
+-- Example if rate_limit_time_period is 120s for resource A, events of this resource type older than 14 days aprox (1200000s) will be dropped form tbl data
+-- SHOW PROCESSLIST;
+-- SHOW EVENTS FROM rate_limit;
+-- SELECT * FROM INFORMATION_SCHEMA.events;
+-- DROP EVENT IF EXISTS tbl_data_maintenance;
+delimiter |
+CREATE EVENT IF NOT EXISTS tbl_data_maintenance
+    ON SCHEDULE EVERY 7 DAY
+    STARTS CURRENT_TIMESTAMP
+    DO
+        BEGIN
+            CREATE TEMPORARY TABLE hist AS (
+                SELECT d.id
+                FROM data AS d INNER JOIN settings AS s
+                    ON d.resource = s.resource
+                WHERE d.date_unix_timestamp < (unix_timestamp(UTC_TIMESTAMP()) - s.rate_limit_time_period * 10000)
+                );
+            DELETE FROM data WHERE id IN ( SELECT id FROM hist );
+            DROP TEMPORARY TABLE hist;
+        END |
+delimiter ;
 
 
 
